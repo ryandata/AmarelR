@@ -1,6 +1,6 @@
 # Machine Learning with Amarel using R
 
-Materials for **IMachine Learning with Amarel using R** workshop. First held at Rutgers University, Fall 2020.  
+Materials for **Machine Learning with Amarel using R** workshop. First held at Rutgers University, Fall 2020.  
 <https://github.com/ryandata/AmarelR>
 
 Amarel is the major High Performance Computing (HPC) cluster available to Rutgers faculty, students, and staff.
