@@ -2,7 +2,6 @@ sessionInfo()
 library(tidyverse)
 library(data.table)
 library(bit64)
-install.packages("ggcorrplot")
 library(ggcorrplot)
 
 
