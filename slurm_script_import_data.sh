@@ -9,6 +9,5 @@
 #SBATCH --time=00:30:00           # Total run time limit (HH:MM:SS)
 #SBATCH --output=slurm.%N.%j.out  # STDOUT output file
 #SBATCH --error=slurm.%N.%j.err   # STDERR output file (optional)
-cd /scratch/$USER
 module purge
-srun Rscript importdata.R
+srun Rscript /home/rwomack/AmarelR/code/importdata.R
