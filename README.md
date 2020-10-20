@@ -49,7 +49,7 @@ A key to working on Amarel is familiarizing yourself with **slurm**, which sched
 
 See <https://slurm.schedmd.com> for full details.
 
-Key commands are **srun**, **squeue**, and **sbatch**
+Key commands are **srun**, **squeue**, **sacct**, and **sbatch**
 
 See OARC's **Technical User Guide** at 
 <https://sites.google.com/view/cluster-user-guide/home> for more information.
