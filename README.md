@@ -37,3 +37,31 @@ You will log in to your Amarel account with your usual NetID/password once acces
 You **must** be on the VPN to connect to Amarel.  If you find you cannot log in, this is the first thing to check.  VPN connections also time out, so you sometimes can lose a connection after being logged in.
 
 If you are on the campus network already, you do not need the VPN, but this is rare in 2020!
+
+## Direct terminal access to Amarel
+
+You can access Amarel directly by using ssh to go to <https://amarel.rutgers.edu>\
+Even if you plan on using another interface, like OnDemand, it is good to have a terminal connection active in order to monitor and run basic commands.
+
+## SLURM
+
+A key to working on Amarel is familiarizing yourself with **slurm**, which schedules jobs.
+
+<https://slurm.schedmd.com>
+
+Key commands are **srun** **squeue** and **sbatch**
+
+See OARC's **Technical User Guide** at 
+<https://sites.google.com/view/cluster-user-guide/home> for more information.
+
+## OnDemand
+
+There are additional ways to use Amarel, such as FastX, which you can learn about if you follow OARC's **Weekly Open Workshop Series** at <https://oarc.rutgers.edu/training-and-scientific-consultation/>.
+
+However, **OnDemand** provides the most general-purpose GUI.
+
+Connect to OnDemand (while on the VPN) at
+<https://ondemand.hpc.rutgers.edu>
+
+With OnDemand, you can launch an interactive RStudio session, Jupyter Notebook, or other options.  Be sure to request enough time and computing resources for your tasks, but not too much more than you need, otherwise other users will be disadvantaged.
+

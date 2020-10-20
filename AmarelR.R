@@ -144,7 +144,7 @@ parkingsample<-slice_sample(Parking14_17, prop=.01)
 # write_csv(parkingsample, "parkingsample.csv")
 
 # import parkingsample
-parkingsample <- fread("parking_one_percent_sample.csv")
+parkingsample <- fread("/scratch/rwomack/data/parking_one_percent_sample.csv")
 
 summary(parkingsample)
 cor(as.matrix(parkingsample))
