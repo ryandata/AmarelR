@@ -47,7 +47,7 @@ Even if you plan on using another interface, like OnDemand, it is good to have a
 
 A key to working on Amarel is familiarizing yourself with **slurm**, which schedules jobs.
 
-<https://slurm.schedmd.com>
+See <https://slurm.schedmd.com> for full details.
 
 Key commands are **srun**, **squeue**, and **sbatch**
 
