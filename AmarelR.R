@@ -8,6 +8,7 @@ library(factoextra)
 library(ggpubr)
 library(mltools)
 library(caret)
+library(psych)
 
 
 
@@ -279,7 +280,7 @@ table(x) %>%
   as.data.frame() %>% 
   arrange(desc(Freq))
 
-## machine learning techniques
+## Machine learning techniques
 
 # clustering
 
@@ -478,7 +479,13 @@ names(parkingsample)
 summary(parkingsample)
 
 # we can one-hot encode using function from mltools
-parkingsample_1 <- one_hot(parkingsample, col="Violation County")
+# make sure we have a factor
+parkingsample$County2<-as.factor(parkingsample$`Violation County`)
+
+parkingsample_1 <- one_hot(parkingsample, col="County2")
+
+# a quick built-in example
+# caret iterates and optimizes the model itself
 
 inTrain <- createDataPartition(y = iris$Species, p = .8, list = FALSE)
 createFolds(parksample_nochar, k=5)
@@ -490,18 +497,19 @@ rf.fit <- caret::train(Species ~ .,
                        method = "rf",
                        trControl = fit.control)
 
+# https://quantdev.ssri.psu.edu/sites/qdev/files/CV_tutorial.html
 
 data_ctrl <- trainControl(method = "cv", number = 5)
 model_caret <- train(ACT ~ gender + age + SATV + SATQ,   # model to fit
-                     data = data,                        
+                     data = sat.act,                        
                      trControl = data_ctrl,              # folds
-                     method = "lm",   
+                     method = "lm")  
                      
 # using caret
 # https://www.machinelearningplus.com/machine-learning/caret-package/
 
 # define a split of your data for training
-trainRowNumbers <- createDataPartition(rescaled_parking$`Feet From Curb`, p=0.1, list=FALSE)
+trainRowNumbers <- createDataPartition(rescaled_parking$`Feet From Curb`, p=0.01, list=FALSE)
 
 
 # Create the training  dataset
@@ -530,6 +538,14 @@ plot(my_model)
 
 predicted <- predict(my_model, testData)
 head(predicted)
+
+# Root Mean Square Error (RMSE)
+
+rmse(predicted-testData$`Feet From Curb`, na.rm=TRUE)
+
+# can also compute confusion matrix for categoricals
+
+confusionMatrix(reference = testData$`Feet From Curb`, data = predicted, mode='everything')
      
 # feature plots -- y needs to be a factor
 
