@@ -3,6 +3,12 @@ library(tidyverse)
 library(data.table)
 library(bit64)
 library(ggcorrplot)
+library(Hmisc)
+library(factoextra)
+library(ggpubr)
+library(mltools)
+library(caret)
+
 
 
 # grab data
@@ -272,3 +278,266 @@ x <- `Registration State`
 table(x) %>% 
   as.data.frame() %>% 
   arrange(desc(Freq))
+
+## machine learning techniques
+
+# clustering
+
+# we will illustrate k-means clustering, a widely used technique
+# k-means relies on numeric distance between variables
+# therefore factor variables are not appropriate for the algorithm
+# we will use the nocharacter extract defined above
+
+parksample_nochar
+
+names(parksample_nochar)
+
+# Summons Number and the Street Codes don't seem particularly interesting
+# let's drop them
+
+parksample_nochar <- parksample_nochar[,-c(1,3,4,5)]
+
+rescaled_parking <- parksample_nochar %>%
+  mutate(`Violation Code` = scale(`Violation Code`),
+         `Violation Location` = scale(`Violation Location`),
+         `Violation Precinct` = scale(`Violation Precinct`),
+         `Issuer Precinct` = scale(`Issuer Precinct`),
+         `Issuer Code` = scale(`Issuer Code`),
+         `Vehicle Year` = scale(`Vehicle Year`),
+         `Feet From Curb` = scale(`Feet From Curb`)) 
+
+summary(rescaled_parking)
+
+centers <- 4
+kmeans(parksample_nochar, centers)
+kmeans(rescaled_parking, centers)
+
+# what happened?
+# kmeans cannot work with NA cells
+# we could impute the data
+# using the means or median of each variable
+
+# Hmisc does basic imputation via mean, median, etc.
+# you may want to check out "mice" package for more sophisticated methods
+
+is.na(parksample_nochar)
+table(is.na(parksample_nochar$`Violation Location`))
+table(is.na(parksample_nochar$`Violation Precinct`))
+table(is.na(parksample_nochar$`Violation Code`))
+table(is.na(parksample_nochar$`Issuer Precinct`))
+table(is.na(parksample_nochar$`Issuer Code`))
+table(is.na(parksample_nochar$`Vehicle Year`))
+table(is.na(parksample_nochar$`Feet From Curb`))
+
+# so it looks like our NAs stem from just one variable
+# let's go ahead and drop that one
+parksample_nochar <- parksample_nochar[,-2]
+rescaled_parking <- rescaled_parking[,-2]
+
+# try again
+# k-means is sensitive to the random starting assignments
+# we specify nstart = 5. 
+# R will try 5 different random starting assignments and then select the best results.
+# This number can be usually higher, but here our dataset is large
+# don't want to slow things down too much
+
+centers <- 4
+kmeans(parksample_nochar, centers, nstart=5)
+kmeans(rescaled_parking, centers, nstart=5)
+
+# in order to visualize results easily, we need to limit to two dimensions
+# note  .. syntax within brackets is specific to data.table
+
+features <- c('Violation Precinct','Issuer Precinct')
+centers <- 4
+my_k <- kmeans(parksample_nochar[, ..features], centers, nstart=5)
+my_k_scaled <- kmeans(rescaled_parking[, ..features], centers, nstart=5)
+
+# visualizing using technique outlined at
+# https://www.datanovia.com/en/blog/k-means-clustering-visualization-in-r-step-by-step-guide/
+
+fviz_cluster(my_k, parksample_nochar[, ..features],
+             palette = c("blue", "red", "green","black"), 
+             geom = "point",
+             ellipse.type = "convex", 
+             ggtheme = theme_bw()
+)
+fviz_cluster(my_k_scaled, rescaled_parking[, ..features],
+             palette = c("blue", "red", "green","black"), 
+             geom = "point",
+             ellipse.type = "convex", 
+             ggtheme = theme_bw()
+)
+
+# now try
+features <- c('Violation Precinct','Feet From Curb')
+my_k <- kmeans(parksample_nochar[, ..features], centers, nstart=5)
+my_k_scaled <- kmeans(rescaled_parking[, ..features], centers, nstart=5)
+fviz_cluster(my_k, parksample_nochar[, ..features],
+             palette = c("blue", "red", "green","black"), 
+             geom = "point",
+             ellipse.type = "convex", 
+             ggtheme = theme_bw()
+)
+fviz_cluster(my_k_scaled, rescaled_parking[, ..features],
+             palette = c("blue", "red", "green","black"), 
+             geom = "point",
+             ellipse.type = "convex", 
+             ggtheme = theme_bw()
+)
+
+features <- c('Vehicle Year','Feet From Curb')
+my_k <- kmeans(parksample_nochar[, ..features], centers, nstart=5)
+my_k_scaled <- kmeans(rescaled_parking[, ..features], centers, nstart=5)
+fviz_cluster(my_k, parksample_nochar[, ..features],
+             palette = c("blue", "red", "green","black"), 
+             geom = "point",
+             ellipse.type = "convex", 
+             ggtheme = theme_bw()
+)
+fviz_cluster(my_k_scaled, rescaled_parking[, ..features],
+             palette = c("blue", "red", "green","black"), 
+             geom = "point",
+             ellipse.type = "convex", 
+             ggtheme = theme_bw()
+)
+
+# we can also plot across combined dimensions,
+# although the interpretation in this case is less clear
+my_k <- kmeans(parksample_nochar, centers, nstart=5)
+my_k_scaled <- kmeans(rescaled_parking, centers, nstart=5)
+fviz_cluster(my_k, parksample_nochar,
+             palette = c("blue", "red", "green","black"), 
+             geom = "point",
+             ellipse.type = "convex", 
+             ggtheme = theme_bw()
+)
+fviz_cluster(my_k_scaled, rescaled_parking[, ..features],
+             palette = c("blue", "red", "green","black"), 
+             geom = "point",
+             ellipse.type = "convex", 
+             ggtheme = theme_bw()
+)
+
+# we can also iterate through different numbers of centers
+
+# there is an art to finding the right number
+
+# See this page for more
+# https://www.guru99.com/r-k-means-clustering.html
+
+# create a convenience function to generate sum of squares
+# for any given k number of clusters
+# withinss is the sum of squares within the model
+
+kmean_withinss <- function(k) {
+  cluster <- kmeans(rescaled_parking, k)
+  return (cluster$tot.withinss)
+}
+
+# then iterate over many cluster values
+
+# Set maximum cluster 
+max_k <-20 
+
+# Run algorithm over a range of k 
+wss <- sapply(2:max_k, kmean_withinss)
+
+# Create a data frame to plot the graph
+elbow <-data.frame(2:max_k, wss)
+
+# Then plot the graph to visualize where the "elbow" is
+# this represent the point of diminishing returns
+# Ultimately, a judgement call
+
+ggplot(elbow, aes(x = X2.max_k, y = wss)) +
+  geom_point() +
+  geom_line() +
+  scale_x_continuous(breaks = seq(1, 20, by = 1))
+
+# Training and Testing (Prediction)
+
+# We have been running our models up to now with the intent
+# to describe existing data
+# If we want to focus on prediction
+# that is a different approach
+
+# We must split our data into training and testing sets
+# We build the model off of training data
+# Then train it on the testing data, which the model 
+# has not "seen" yet
+
+# see, for example,
+# https://www.r-bloggers.com/2019/10/evaluating-model-performance-by-building-cross-validation-from-scratch/
+
+
+
+# let's restrict to a subset for this section
+parkingsample <- parkingsample[,-c(1:2,5,10:13,16:20,22:31,34,36:44)]
+names(parkingsample)
+summary(parkingsample)
+
+# we can one-hot encode using function from mltools
+parkingsample_1 <- one_hot(parkingsample, col="Violation County")
+
+inTrain <- createDataPartition(y = iris$Species, p = .8, list = FALSE)
+createFolds(parksample_nochar, k=5)
+iris.train <- iris[inTrain, ]
+iris.test <- iris[- inTrain, ]
+fit.control <- caret::trainControl(method = "cv", number = 10)
+rf.fit <- caret::train(Species ~ .,
+                       data = iris.train,
+                       method = "rf",
+                       trControl = fit.control)
+
+
+data_ctrl <- trainControl(method = "cv", number = 5)
+model_caret <- train(ACT ~ gender + age + SATV + SATQ,   # model to fit
+                     data = data,                        
+                     trControl = data_ctrl,              # folds
+                     method = "lm",   
+                     
+# using caret
+# https://www.machinelearningplus.com/machine-learning/caret-package/
+
+# define a split of your data for training
+trainRowNumbers <- createDataPartition(rescaled_parking$`Feet From Curb`, p=0.1, list=FALSE)
+
+
+# Create the training  dataset
+trainData <- rescaled_parking[trainRowNumbers,]
+
+# Create the test dataset
+testData <- rescaled_parking[-trainRowNumbers,]
+
+# Store X and Y for later use.
+x = trainData[, 5]
+y = trainData$`Feet From Curb`
+
+
+# See available algorithms in caret
+modelnames <- paste(names(getModelInfo()), collapse=',  ')
+modelnames
+
+modelLookup('knn')
+
+my_model <- train(x,y, method='knn')
+fitted <- predict(my_model)
+my_model
+plot(my_model)
+
+# predictions
+
+predicted <- predict(my_model, testData)
+head(predicted)
+     
+# feature plots -- y needs to be a factor
+
+featurePlot(x,y,
+            plot = "scatter",
+            strip=strip.custom(par.strip.text=list(cex=.7)),
+            scales = list(x = list(relation="free"), 
+                          y = list(relation="free")))
+                     
+                     
+                     
