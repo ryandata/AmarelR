@@ -96,6 +96,7 @@ rm(Parking16_17)
 
 # slice 1%
 parkingsample<-slice_sample(Parking14_17, prop=.01)
+parking<-fread("/scratch/rwomack/data/Parking_Merged.csv")
 
 # write
 # you can use write_csv to export data
@@ -117,6 +118,7 @@ cor.test()
 # these columns have character or logicaldata
 # c(2:5,7:9,17:32, 34, 36:37)
 parksample_nochar <- parkingsample[,-c(2:5,7:9,17:32,34, 36:44)]
+park_nochar <- parking[,-c(2:5,7:9,17:32,34, 36:44)]
 
 # note the pairwise complete observations option
 cor(parksample_nochar, use="pairwise.complete.obs")
@@ -179,6 +181,7 @@ table(`No Standing or Stopping Violation`)
 # turns out the latter columns also are basically all NA's
 # let's shrink the data further
 parkingsample<-parkingsample[,1:37]
+parking<-parking[,1:37]
 
 x <- `Violation Description`
 table(x) %>% 
@@ -289,6 +292,7 @@ table(x) %>%
 # therefore factor variables are not appropriate for the algorithm
 # we will use the nocharacter extract defined above
 
+
 parksample_nochar
 
 names(parksample_nochar)
@@ -297,6 +301,7 @@ names(parksample_nochar)
 # let's drop them
 
 parksample_nochar <- parksample_nochar[,-c(1,3,4,5)]
+park_nochar <- park_nochar[,-c(1,3,4,5)]
 
 rescaled_parking <- parksample_nochar %>%
   mutate(`Violation Code` = scale(`Violation Code`),
@@ -307,11 +312,22 @@ rescaled_parking <- parksample_nochar %>%
          `Vehicle Year` = scale(`Vehicle Year`),
          `Feet From Curb` = scale(`Feet From Curb`)) 
 
-summary(rescaled_parking)
+rescaled_parking2 <- park_nochar %>%
+  mutate(`Violation Code` = scale(`Violation Code`),
+         `Violation Location` = scale(`Violation Location`),
+         `Violation Precinct` = scale(`Violation Precinct`),
+         `Issuer Precinct` = scale(`Issuer Precinct`),
+         `Issuer Code` = scale(`Issuer Code`),
+         `Vehicle Year` = scale(`Vehicle Year`),
+         `Feet From Curb` = scale(`Feet From Curb`)) 
+
+summary(rescaled_parking2)
 
 centers <- 4
 kmeans(parksample_nochar, centers)
-kmeans(rescaled_parking, centers)
+kmeans(rescaled_parking2, centers)
+
+kmeans(na.omit(rescaled_parking2), centers)
 
 # what happened?
 # kmeans cannot work with NA cells
@@ -475,6 +491,8 @@ ggplot(elbow, aes(x = X2.max_k, y = wss)) +
 
 # let's restrict to a subset for this section
 parkingsample <- parkingsample[,-c(1:2,5,10:13,16:20,22:31,34,36:44)]
+parking<-parking[,-c(1:2,5,10:13,16:20,22:31,34,36:37)]
+
 names(parkingsample)
 summary(parkingsample)
 
@@ -500,16 +518,19 @@ rf.fit <- caret::train(Species ~ .,
 # https://quantdev.ssri.psu.edu/sites/qdev/files/CV_tutorial.html
 
 data_ctrl <- trainControl(method = "cv", number = 5)
-model_caret <- train(ACT ~ gender + age + SATV + SATQ,   # model to fit
-                     data = sat.act,                        
+model_caret <- train(`Vehicle Year`~`Issuer Precinct`,   # model to fit
+                     data = parksample_nochar,                        
                      trControl = data_ctrl,              # folds
                      method = "lm")  
+model_caret
+names(model_caret)
+model_caret$finalModel
                      
 # using caret
 # https://www.machinelearningplus.com/machine-learning/caret-package/
 
 # define a split of your data for training
-trainRowNumbers <- createDataPartition(rescaled_parking$`Feet From Curb`, p=0.01, list=FALSE)
+trainRowNumbers <- createDataPartition(rescaled_parking$`Feet From Curb`, p=0.05, list=FALSE)
 
 
 # Create the training  dataset
