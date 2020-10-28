@@ -519,9 +519,10 @@ rf.fit <- caret::train(Species ~ .,
 
 data_ctrl <- trainControl(method = "cv", number = 5)
 model_caret <- train(`Vehicle Year`~`Issuer Precinct`,   # model to fit
-                     data = parksample_nochar,                        
-                     trControl = data_ctrl,              # folds
-                     method = "lm")  
+      data = parksample_nochar,                        
+      trControl = data_ctrl,              # folds
+      method = "lm") 
+
 model_caret
 names(model_caret)
 model_caret$finalModel
