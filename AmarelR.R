@@ -12,6 +12,7 @@ library(psych)
 library(nnet)
 library(LogicReg)
 library(h2o)
+library(e1071)
 
 
 
@@ -106,7 +107,7 @@ parking<-fread("/scratch/rwomack/data/Parking_Merged.csv")
 # write_csv(parkingsample, "parkingsample.csv")
 
 # import parkingsample
-parkingsample <- fread("/scratch/rwomack/data/parking_one_percent_sample.csv")
+parkingsample <- fread("parking_one_percent_sample.csv")
 
 summary(parkingsample)
 cor(as.matrix(parkingsample))
@@ -493,7 +494,7 @@ ggplot(elbow, aes(x = X2.max_k, y = wss)) +
 
 
 # let's restrict to a subset for this section
-parkingsample <- parkingsample[,-c(1:2,5,10:13,16:20,22:31,34,36:44)]
+parkingsample <- parkingsample[,-c(1:2,5,10:13,16:20,22:31,34,36:37)]
 parking<-parking[,-c(1:2,5,10:13,16:20,22:31,34,36:37)]
 
 names(parkingsample)
@@ -595,6 +596,8 @@ modelnames
 
 modelLookup('knn')
 
+# build the model with train
+# trainControl function allows us to adjust other parameters
 my_model <- train(x,y, method='knn')
 fitted <- predict(my_model)
 my_model
@@ -693,11 +696,14 @@ h_testData <- h2o.uploadFile(path="/Users/ryanwomack/Dropbox/R/AmarelR/testData.
 # now we can invoke h2o directly with
 
 my_model <- h2o.deeplearning(x=1:4, y=6, training_frame=h_trainData, validation_frame=h_testData)
+names(my_model)
+my_model$finalModel
+
 
 # note that h2o frames are a bit tricky to unpack back into R
-ypred<-h2o.predict(my_model,h_trainData)
+ypred<-h2o.predict(my_model,h_testData)
 my_y<-as.data.frame(ypred)  
-my_x<-as.data.frame(h_trainData)
+my_x<-as.data.frame(h_testData)
 plot(my_x[,6],my_y$predict)
 
 # some further learning
