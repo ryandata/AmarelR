@@ -9,6 +9,9 @@ library(ggpubr)
 library(mltools)
 library(caret)
 library(psych)
+library(nnet)
+library(LogicReg)
+library(h2o)
 
 
 
@@ -530,6 +533,7 @@ model_caret$finalModel
 # using caret
 # https://www.machinelearningplus.com/machine-learning/caret-package/
 
+
 # define a split of your data for training
 trainRowNumbers <- createDataPartition(rescaled_parking$`Feet From Curb`, p=0.05, list=FALSE)
 
@@ -541,8 +545,8 @@ trainData <- rescaled_parking[trainRowNumbers,]
 testData <- rescaled_parking[-trainRowNumbers,]
 
 # Store X and Y for later use.
-x = trainData[, 5]
-y = trainData$`Feet From Curb`
+x = trainData[, 1:5]
+y = trainData$feet
 
 
 # See available algorithms in caret
@@ -561,21 +565,145 @@ plot(my_model)
 predicted <- predict(my_model, testData)
 head(predicted)
 
-# Root Mean Square Error (RMSE)
+
+# try caret again with categorical data split
+
+# split Feet from Curb into a categorical - low/high variable
+
+rescaled_parking$feet = as.numeric(rescaled_parking$`Feet From Curb`<=(-0.14))
+
+rescaled_parking$feet = factor(rescaled_parking$feet, labels=c("F","T"), levels=c(0,1))
+
+# define a split of your data for training
+trainRowNumbers <- createDataPartition(rescaled_parking$feet, p=0.05, list=FALSE)
+
+
+# Create the training  dataset
+trainData <- rescaled_parking[trainRowNumbers,]
+
+# Create the test dataset
+testData <- rescaled_parking[-trainRowNumbers,]
+
+# Store X and Y for later use.
+x <- trainData[, 1:4]
+y <- trainData$feet
+
+
+# See available algorithms in caret
+modelnames <- paste(names(getModelInfo()), collapse=',  ')
+modelnames
+
+modelLookup('knn')
+
+my_model <- train(x,y, method='knn')
+fitted <- predict(my_model)
+my_model
+plot(my_model)
+
+# predictions
+
+predicted <- predict(my_model, testData)
+head(predicted)
+
+# Root Mean Square Error (RMSE) [from mltools package]
 
 rmse(predicted-testData$`Feet From Curb`, na.rm=TRUE)
 
 # can also compute confusion matrix for categoricals
 
-confusionMatrix(reference = testData$`Feet From Curb`, data = predicted, mode='everything')
-     
+confusionMatrix(reference = testData$feet, data = predicted, mode='everything')
+
 # feature plots -- y needs to be a factor
 
-featurePlot(x,y,
-            plot = "scatter",
-            strip=strip.custom(par.strip.text=list(cex=.7)),
-            scales = list(x = list(relation="free"), 
-                          y = list(relation="free")))
-                     
-                     
-                     
+plot(rescaled_parking[,4],rescaled_parking$feet)
+
+x <- as.data.frame(x)
+
+# featurePlot
+# featurePlot(x,y,
+#          plot = "scatter",
+#           strip=strip.custom(par.strip.text=list(cex=.7)),
+#           scales = list(x = list(relation="free"), 
+#                          y = list(relation="free")))
+
+
+
+### Neural Networks
+
+# nnet is the classic R package
+
+# h2o is a multiple-purpose ML engine that includes ML methods
+
+# neuralnet has not been updated since 2019-02
+# not sure of its status
+
+# start with nnet
+
+# neural networks require normalized data
+# we have already accomplished this step with the rescaling
+
+# neural net uses a generic approach with layers and nodes
+# as a result, it can fit a wider range of situations
+# but interpretation of the model can be difficult
+
+# we will leverage our practice with caret to fit a neural net the same way
+
+# note this method takes quite a while to cycle through iterations
+# try with iris data
+
+trainRowNumbers <- createDataPartition(iris$Species, p=0.5, list=FALSE)
+iris.train <- iris[trainRowNumbers,]
+iris.test <- iris[-trainRowNumbers,]
+
+x1 <- iris.train [,1:4]
+y1 <- iris.train$Species
+
+modelLookup('nnet')
+
+my_model <- train(x1,y1, method='nnet')
+fitted <- predict(my_model)
+my_model
+plot(my_model)
+
+# kappa goes from 0 (no predictive power) to 1 (perfect prediction)
+
+predicted <- predict(my_model, iris.test)
+
+confusionMatrix(reference = iris.test$Species, data = predicted, mode='everything')
+
+# h2o
+# h2o handles multiple approaches to Machine Learning
+# and is parallelizable
+# making it a good choice for HPC/Amarel work
+
+# starts the web interface
+h2o.init()
+
+# requires Java runtime environment in some flavor to be installed
+# e.g. openJDK for Mac
+
+# https://spark.rstudio.com/guides/h2o/
+
+# h2o reads csv files, not R (as far as I see)
+write.csv(trainData, "trainData.csv")
+write.csv(testData, "testData.csv")
+h_trainData <- h2o.uploadFile(path="/Users/ryanwomack/Dropbox/R/AmarelR/trainData.csv", header=TRUE, sep=",")
+h_testData <- h2o.uploadFile(path="/Users/ryanwomack/Dropbox/R/AmarelR/testData.csv", sep=",")
+
+# now we can invoke h2o directly with
+
+my_model <- h2o.deeplearning(x=1:4, y=6, training_frame=h_trainData, validation_frame=h_testData)
+
+# note that h2o frames are a bit tricky to unpack back into R
+ypred<-h2o.predict(my_model,h_trainData)
+my_y<-as.data.frame(ypred)  
+my_x<-as.data.frame(h_trainData)
+plot(my_x[,6],my_y$predict)
+
+# some further learning
+
+# https://dzone.com/articles/exploring-amp-transforming-h2o-data-frame-in-r-and
+
+# https://www.analyticsvidhya.com/blog/2016/05/h2o-data-table-build-models-large-data-sets/
+
+
