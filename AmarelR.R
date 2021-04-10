@@ -17,7 +17,7 @@ library(e1071)
 
 
 # grab data
-setwd("/scratch/rwomack/data")
+setwd("/home/ryan/R")
 parkingsample<-read.csv("Parking2014.csv")
 
 # sample or slice data
@@ -57,9 +57,9 @@ Parking2014table<-fread("Parking2014.csv")
 # homogenize data
 # 2017 data has fewer variables, so truncate the other
 # years to match
-Parking2014table<-Parking2014table[,1:45]
-Parking2015table<-Parking2015table[,1:45]
-Parking2016table<-Parking2016table[,1:45]
+Parking2014table<-Parking2014table[,1:43]
+Parking2015table<-Parking2015table[,1:43]
+Parking2016table<-Parking2016table[,1:43]
 
 # 2017 also has no data for Unregistered vehicle
 # so we drop this variable
@@ -93,7 +93,7 @@ Parking16_17<-merge(Parking2016table, Parking2017table, all=TRUE)
 rm(Parking2016table)
 rm(Parking2017table)
 
-Parking14_17<-merge(Parking14_15,Parking16_17, all=TRUE)
+parking<-merge(Parking14_15,Parking16_17, all=TRUE)
 
 rm(Parking14_15)
 rm(Parking16_17)
@@ -109,6 +109,12 @@ parking<-fread("/scratch/rwomack/data/Parking_Merged.csv")
 # import parkingsample
 parkingsample <- fread("parking_one_percent_sample.csv")
 
+# we will be working with 
+# "parking" - full file and
+# "parkingsample" - 1% sample
+# primarily parkingsample for responsiveness
+# but feel free to experiment with using "parking" too
+
 summary(parkingsample)
 cor(as.matrix(parkingsample))
 
@@ -121,8 +127,8 @@ cor.test()
 
 # these columns have character or logicaldata
 # c(2:5,7:9,17:32, 34, 36:37)
-parksample_nochar <- parkingsample[,-c(2:5,7:9,17:32,34, 36:44)]
-park_nochar <- parking[,-c(2:5,7:9,17:32,34, 36:44)]
+parksample_nochar <- parkingsample[,-c(2:5,7:9,17:32,34, 36:40)]
+park_nochar <- parking[,-c(2:5,7:9,17:32,34, 36:40)]
 
 # note the pairwise complete observations option
 cor(parksample_nochar, use="pairwise.complete.obs")
@@ -282,7 +288,7 @@ table(x) %>%
   as.data.frame() %>% 
   arrange(desc(Freq))
 
-x <- `Registration State`
+x <- parking$`Registration State`
 table(x) %>% 
   as.data.frame() %>% 
   arrange(desc(Freq))
@@ -331,6 +337,7 @@ centers <- 4
 kmeans(parksample_nochar, centers)
 kmeans(rescaled_parking2, centers)
 
+kmeans(na.omit(parksample_nochar), centers)
 kmeans(na.omit(rescaled_parking2), centers)
 
 # what happened?
@@ -510,7 +517,7 @@ parkingsample_1 <- one_hot(parkingsample, col="County2")
 # caret iterates and optimizes the model itself
 
 inTrain <- createDataPartition(y = iris$Species, p = .8, list = FALSE)
-createFolds(parksample_nochar, k=5)
+# createFolds(iris, k=5)
 iris.train <- iris[inTrain, ]
 iris.test <- iris[- inTrain, ]
 fit.control <- caret::trainControl(method = "cv", number = 10)
@@ -519,7 +526,24 @@ rf.fit <- caret::train(Species ~ .,
                        method = "rf",
                        trControl = fit.control)
 
+rf.fit
+rf.fit$finalModel
+
 # https://quantdev.ssri.psu.edu/sites/qdev/files/CV_tutorial.html
+
+inTrain <- createDataPartition(y = parksample_nochar$`Vehicle Year`, p = .1, list = FALSE)
+# createFolds(parksample_nochar, k=5)
+park.train <- parksample_nochar[inTrain, ]
+park.test <- parksample_nochar[- inTrain, ]
+fit.control <- caret::trainControl(method = "cv", number = 10)
+rf.fit <- caret::train(`Vehicle Year` ~ `Feet From Curb`,
+                       data = park.train,
+                       method = "rf",
+                       trControl = fit.control)
+
+rf.fit
+rf.fit$finalModel
+
 
 data_ctrl <- trainControl(method = "cv", number = 5)
 model_caret <- train(`Vehicle Year`~`Issuer Precinct`,   # model to fit
@@ -547,7 +571,7 @@ testData <- rescaled_parking[-trainRowNumbers,]
 
 # Store X and Y for later use.
 x = trainData[, 1:5]
-y = trainData$feet
+y = trainData$`Feet From Curb`
 
 
 # See available algorithms in caret
@@ -566,6 +590,9 @@ plot(my_model)
 predicted <- predict(my_model, testData)
 head(predicted)
 
+# Root Mean Square Error (RMSE) [from mltools package]
+
+rmse(predicted, testData$`Feet From Curb`, na.rm=TRUE)
 
 # try caret again with categorical data split
 
@@ -606,11 +633,14 @@ plot(my_model)
 # predictions
 
 predicted <- predict(my_model, testData)
+
+predicted <- as.numeric(predicted <=(-0.14))
+
+predicted <- factor(predicted, labels=c("F","T"), levels=c(0,1))
+
 head(predicted)
 
-# Root Mean Square Error (RMSE) [from mltools package]
 
-rmse(predicted-testData$`Feet From Curb`, na.rm=TRUE)
 
 # can also compute confusion matrix for categoricals
 
@@ -690,14 +720,14 @@ h2o.init()
 # h2o reads csv files, not R (as far as I see)
 write.csv(trainData, "trainData.csv")
 write.csv(testData, "testData.csv")
-h_trainData <- h2o.uploadFile(path="/Users/ryanwomack/Dropbox/R/AmarelR/trainData.csv", header=TRUE, sep=",")
-h_testData <- h2o.uploadFile(path="/Users/ryanwomack/Dropbox/R/AmarelR/testData.csv", sep=",")
+h_trainData <- h2o.uploadFile(path="/home/ryan/R/trainData.csv", header=TRUE, sep=",")
+h_testData <- h2o.uploadFile(path="/home/ryan/R/testData.csv", sep=",")
 
 # now we can invoke h2o directly with
 
 my_model <- h2o.deeplearning(x=1:4, y=6, training_frame=h_trainData, validation_frame=h_testData)
-names(my_model)
-my_model$finalModel
+
+my_model
 
 
 # note that h2o frames are a bit tricky to unpack back into R
