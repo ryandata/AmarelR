@@ -18,6 +18,9 @@ library(e1071)
 
 # grab data
 setwd("/home/ryan/R")
+# or on Amarel cluster
+# setwd("/scratch/rwomack/data/")
+
 parkingsample<-read.csv("Parking2014.csv")
 
 # sample or slice data
@@ -25,6 +28,7 @@ parkingsample<-read.csv("Parking2014.csv")
 parkingsample2014<-slice_sample(parkingsample, prop=.05)
 
 # installing packages
+# required for data merge
 
 install.packages("data.table", dependencies=TRUE)
 install.packages("tidyverse", dependencies=TRUE)
@@ -99,15 +103,17 @@ rm(Parking14_15)
 rm(Parking16_17)
 
 # slice 1%
-parkingsample<-slice_sample(Parking14_17, prop=.01)
-parking<-fread("/scratch/rwomack/data/Parking_Merged.csv")
+parkingsample<-slice_sample(parking, prop=.01)
+
+# if on Amarel
+# parking<-fread("/scratch/rwomack/data/Parking_Merged.csv")
 
 # write
 # you can use write_csv to export data
 # write_csv(parkingsample, "parkingsample.csv")
 
-# import parkingsample
-parkingsample <- fread("parking_one_percent_sample.csv")
+# import parkingsample ( if on Amarel)
+# parkingsample <- fread("/scratch/rwomack/data/parking_one_percent_sample.csv")
 
 # we will be working with 
 # "parking" - full file and
@@ -331,13 +337,15 @@ rescaled_parking2 <- park_nochar %>%
          `Vehicle Year` = scale(`Vehicle Year`),
          `Feet From Curb` = scale(`Feet From Curb`)) 
 
-summary(rescaled_parking2)
+summary(rescaled_parking)
 
 centers <- 4
 kmeans(parksample_nochar, centers)
+kmeans(rescaled_parking, centers)
 kmeans(rescaled_parking2, centers)
 
 kmeans(na.omit(parksample_nochar), centers)
+kmeans(na.omit(rescaled_parking), centers)
 kmeans(na.omit(rescaled_parking2), centers)
 
 # what happened?
@@ -360,6 +368,7 @@ table(is.na(parksample_nochar$`Feet From Curb`))
 # so it looks like our NAs stem from just one variable
 # let's go ahead and drop that one
 parksample_nochar <- parksample_nochar[,-2]
+rescaled_parking2 <- rescaled_parking2[, -2]
 rescaled_parking <- rescaled_parking[,-2]
 
 # try again
@@ -370,8 +379,8 @@ rescaled_parking <- rescaled_parking[,-2]
 # don't want to slow things down too much
 
 centers <- 4
-kmeans(parksample_nochar, centers, nstart=5)
 kmeans(rescaled_parking, centers, nstart=5)
+kmeans(rescaled_parking2, centers)
 
 # in order to visualize results easily, we need to limit to two dimensions
 # note  .. syntax within brackets is specific to data.table
@@ -440,7 +449,7 @@ fviz_cluster(my_k, parksample_nochar,
              ellipse.type = "convex", 
              ggtheme = theme_bw()
 )
-fviz_cluster(my_k_scaled, rescaled_parking[, ..features],
+fviz_cluster(my_k_scaled, rescaled_parking,
              palette = c("blue", "red", "green","black"), 
              geom = "point",
              ellipse.type = "convex", 
@@ -543,6 +552,19 @@ rf.fit <- caret::train(`Vehicle Year` ~ `Feet From Curb`,
 
 rf.fit
 rf.fit$finalModel
+
+inTrain <- createDataPartition(y = rescaled_parking$`Vehicle Year`, p = .1, list = FALSE)
+# createFolds(parksample_nochar, k=5)
+park.train <- rescaled_parking[inTrain, ]
+park.test <- rescaled_parking[- inTrain, ]
+fit.control <- caret::trainControl(method = "cv", number = 10)
+rf.fit2 <- caret::train(`Vehicle Year` ~ `Feet From Curb`,
+                       data = park.train,
+                       method = "rf",
+                       trControl = fit.control)
+
+rf.fit2
+rf.fit2$finalModel
 
 
 data_ctrl <- trainControl(method = "cv", number = 5)
